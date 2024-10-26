@@ -1,7 +1,12 @@
 const User = require('../models/User');
 const { StatusCodes } = require('http-status-codes');
 const CustomError = require('../errors');
-const { attachCookiesToResponse, createTokenUser } = require('../utils');
+const {
+  attachCookiesToResponse,
+  createTokenUser,
+  sendVerificationEmail,
+} = require("../utils");
+const sendEmail = require("../utils/sendEmail");
 
 const register = async (req, res) => {
   const { email, name, password } = req.body;
@@ -16,6 +21,7 @@ const register = async (req, res) => {
   const role = isFirstAccount ? "admin" : "user";
 
   const verificationToken = crypto.randomUUID();
+  console.log(req.query);
   console.log(verificationToken);
   const user = await User.create({
     name,
@@ -24,9 +30,16 @@ const register = async (req, res) => {
     role,
     verificationToken,
   });
+  const origin = "http://localhost:3000";
+
+  await sendVerificationEmail({
+    name: user.name,
+    email: user.email,
+    verificationToken: user.verificationToken,
+    origin,
+  });
   res.status(StatusCodes.CREATED).json({
     msg: "Please check email",
-    verificationToken: user.verificationToken,
   });
 };
 
@@ -70,10 +83,10 @@ const login = async (req, res) => {
     throw new CustomError.UnauthenticatedError("Please verify your email");
   }
 
-  // const tokenUser = createTokenUser(user);
-  // attachCookiesToResponse({ res, user: tokenUser });
+  const tokenUser = createTokenUser(user);
+  attachCookiesToResponse({ res, user: tokenUser });
 
-  // res.status(StatusCodes.OK).json({ user: tokenUser });
+  res.status(StatusCodes.OK).json({ user: tokenUser });
 };
 const logout = async (req, res) => {
   res.cookie("token", "logout", {
